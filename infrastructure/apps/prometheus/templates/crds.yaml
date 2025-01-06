@@ -1,0 +1,24 @@
+# infrastructure/apps/prometheus/templates/crds.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"  # This ensures CRDs install first
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/prometheus-community/helm-charts.git
+    targetRevision: kube-prometheus-stack-48.3.3  # Match your chart version
+    path: charts/kube-prometheus-stack/crds/
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: false  # Don't prune CRDs
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - Replace=true  # Needed for CRD updates
