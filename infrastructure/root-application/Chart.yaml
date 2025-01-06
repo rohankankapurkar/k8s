@@ -1,0 +1,4 @@
+apiVersion: v2
+name: root-application
+description: Root application for infrastructure components
+version: 0.1.0

@@ -1,0 +1,34 @@
+{{- range .Values.applications }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .name }}
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "{{ .syncWave }}"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: {{ $.Values.repoUrl }}
+    targetRevision: {{ $.Values.targetRevision }}
+    path: infrastructure/apps/{{ .name }}
+  destination:
+    server: {{ $.Values.spec.destination.server }}
+    namespace: {{ .namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+    timeout: 600s
+  {{- if .dependencies }}
+  dependsOn:
+    {{- range .dependencies }}
+    - name: {{ . }}
+    {{- end }}
+  {{- end }}
+{{- end }}
