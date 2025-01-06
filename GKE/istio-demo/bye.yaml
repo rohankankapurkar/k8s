@@ -1,0 +1,37 @@
+# bye.yaml
+definition:
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bye-deployment
+  labels:
+    app: bye
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bye
+  template:
+    metadata:
+      labels:
+        app: bye
+    spec:
+      containers:
+      - name: bye-container
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        command: ["sh", "-c", "echo '<html><body><h1>Goodbye</h1></body></html>' > /usr/share/nginx/html/index.html && nginx -g 'daemon off;'"]
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bye-service
+spec:
+  selector:
+    app: bye
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP

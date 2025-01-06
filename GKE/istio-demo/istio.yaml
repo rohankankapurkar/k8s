@@ -1,0 +1,57 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: gke-routing
+  namespace: default
+spec:
+  gateways:
+  - gke-ingress-gateway
+  hosts:
+  - "*"
+  http:
+  - match:
+    - uri:
+        prefix: "/argo"
+    route:
+    - destination:
+        host: argocd-server.argocd.svc.cluster.local
+        port:
+          number: 443
+      headers:
+        request:
+          set:
+            X-Forwarded-Proto: "https"
+            X-Forwarded-Prefix: "/argo"
+            Host: "argocd-server.argocd.svc.cluster.local:443"
+ 
+  - match:
+    - uri:
+        prefix: "/bye"
+    rewrite:
+      uri: "/"
+    route:
+    - destination:
+        host: bye-service
+        port:
+          number: 80
+  - match:
+    - uri:
+        prefix: "/hello"
+    rewrite:
+      uri: "/"
+    route:
+    - destination:
+        host: hello-service
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: argocd-server
+  namespace: default
+spec:
+  host: argocd-server.argocd.svc.cluster.local
+  trafficPolicy:
+    tls:
+      mode: DISABLE  # This disables TLS from the gateway to ArgoCD server

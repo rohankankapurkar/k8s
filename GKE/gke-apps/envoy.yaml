@@ -1,0 +1,149 @@
+# 1. Istio Gateway (remains same)
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: cluster-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+# 2. Envoy API Gateway Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy-api-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: envoy-api-gateway
+  template:
+    metadata:
+      labels:
+        app: envoy-api-gateway
+    spec:
+      containers:
+      - name: envoy
+        image: envoyproxy/envoy:v1.28-latest
+        ports:
+        - containerPort: 8080
+        - containerPort: 8001  # Admin port
+        volumeMounts:
+        - name: envoy-config
+          mountPath: /etc/envoy
+      volumes:
+      - name: envoy-config
+        configMap:
+          name: envoy-config
+---
+# 3. Envoy Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-api-gateway
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    app: envoy-api-gateway
+---
+# 4. Virtual Service to route to Envoy
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: api-gateway-route
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - cluster-gateway
+  http:
+  - route:
+    - destination:
+        host: envoy-api-gateway
+        port:
+          number: 80
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: envoy-config
+data:
+  envoy.yaml: |
+    static_resources:
+      listeners:
+      - address:
+          socket_address:
+            address: 0.0.0.0
+            port_value: 8080
+        filter_chains:
+        - filters:
+          - name: envoy.filters.network.http_connection_manager
+            typed_config:
+              "@type": type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager
+              stat_prefix: ingress_http
+              access_log:
+              - name: envoy.access_loggers.stdout
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.access_loggers.stream.v3.StdoutAccessLog
+              route_config:
+                name: local_route
+                virtual_hosts:
+                - name: backend
+                  domains: ["*"] # Match all domains
+                  routes:
+                  # Route for hello_service
+                  - match:
+                      prefix: "/"
+                    route:
+                      cluster: hello_service
+                      prefix_rewrite: "/"
+                  # Route for Kiali
+                  - match:
+                      prefix: "/kiali"
+                    route:
+                      cluster: kiali_service
+                      prefix_rewrite: "/"
+              http_filters:
+              - name: envoy.filters.http.router
+                typed_config:
+                  "@type": type.googleapis.com/envoy.extensions.filters.http.router.v3.Router
+      clusters:
+      # Cluster for hello_service
+      - name: hello_service
+        connect_timeout: 0.25s
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: hello_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: hello-world.default.svc.cluster.local
+                    port_value: 80
+      # Cluster for kiali_service
+      - name: kiali_service
+        connect_timeout: 0.25s
+        type: STRICT_DNS
+        lb_policy: ROUND_ROBIN
+        load_assignment:
+          cluster_name: kiali_service
+          endpoints:
+          - lb_endpoints:
+            - endpoint:
+                address:
+                  socket_address:
+                    address: kiali.istio-system.svc.cluster.local
+                    port_value: 20001

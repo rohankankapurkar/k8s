@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hello-deployment
+  labels:
+    app: hello
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hello
+  template:
+    metadata:
+      labels:
+        app: hello
+    spec:
+      containers:
+      - name: hello-container
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          echo '<html><body><h1>Hello</h1></body></html>' > /usr/share/nginx/html/hello &&
+          echo '<html><body><h1>Hello Babe</h1></body></html>' > /usr/share/nginx/html/hellobabe &&
+          nginx -g 'daemon off;'
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-service
+spec:
+  selector:
+    app: hello
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 80
+  type: ClusterIP

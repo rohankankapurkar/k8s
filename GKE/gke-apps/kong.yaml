@@ -1,0 +1,107 @@
+# 1. Istio Gateway (remains same)
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: cluster-gateway
+spec:
+  selector:
+    istio: ingressgateway
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+# 2. Envoy API Gateway Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: envoy-api-gateway
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: envoy-api-gateway
+  template:
+    metadata:
+      labels:
+        app: envoy-api-gateway
+    spec:
+      containers:
+      - name: envoy
+        image: envoyproxy/envoy:v1.28-latest
+        ports:
+        - containerPort: 8080
+        - containerPort: 8001  # Admin port
+        volumeMounts:
+        - name: envoy-config
+          mountPath: /etc/envoy
+      volumes:
+      - name: envoy-config
+        configMap:
+          name: envoy-config
+---
+# 3. Envoy Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: envoy-api-gateway
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    name: http
+  selector:
+    app: envoy-api-gateway
+
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-proxy
+  namespace: kong
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: kong
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kong-admin
+  namespace: kong
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8001
+    targetPort: 8001
+    protocol: TCP
+    name: http
+  selector:
+    app: kong
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: kong-gateway-route
+spec:
+  hosts:
+  - "*" # Match all incoming requests
+  gateways:
+  - cluster-gateway # Istio Gateway
+  http:
+  - route:
+    - destination:
+        host: kong-proxy.kong.svc.cluster.local
+        port:
+          number: 8000
