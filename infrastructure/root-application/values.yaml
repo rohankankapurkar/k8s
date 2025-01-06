@@ -1,4 +1,4 @@
-repoUrl: https://github.com/YOUR_USERNAME/YOUR_REPO
+repoUrl: https://github.com/rohankankapurkar/k8s
 targetRevision: HEAD
 spec:
   destination:
