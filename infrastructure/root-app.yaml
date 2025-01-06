@@ -9,9 +9,6 @@ spec:
     repoURL: https://github.com/YOUR_ORG/YOUR_REPO
     targetRevision: HEAD
     path: infrastructure/root-application
-    # Add this section to reference your GitHub credentials secret
-    credentials:
-      secretName: github-repo-creds
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
@@ -19,4 +16,3 @@ spec:
     automated:
       prune: true
       selfHeal: true
-    timeout: 600s
