@@ -1,19 +1,23 @@
-repoUrl: https://github.com/rohankankapurkar/k8s
-targetRevision: HEAD
-spec:
-  destination:
-    server: https://kubernetes.default.svc
+# infrastructure/root-application/values.yaml
 applications:
-- name: vault
-  namespace: vault
-  syncWave: '0'
-- name: istio
-  namespace: istio-system
-  syncWave: '1'
-  dependencies:
-  - vault
-- name: prometheus
-  namespace: monitoring
-  syncWave: '2'
-  dependencies:
-  - istio
+  - name: vault
+    namespace: vault
+    syncWave: "0"
+    
+  - name: istio
+    namespace: istio-system
+    syncWave: "1"
+    dependencies:
+      - vault
+    
+  - name: prometheus-crds  # Add this new entry
+    namespace: monitoring
+    syncWave: "2"
+    dependencies:
+      - istio
+      
+  - name: prometheus
+    namespace: monitoring
+    syncWave: "3"
+    dependencies:
+      - prometheus-crds  # Add dependency on CRDs
